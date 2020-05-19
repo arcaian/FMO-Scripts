@@ -35,6 +35,37 @@ def extractFragmentBounds(inputFile, startSearch, endSearch):
     return(fragmentLists)  # When the whole set of loops is done, return the list of all fragments
 
 
+def findBondedAtoms(fragmentList, inputFile):
+    inputFile = open(inputFile, 'r')
+    readMode = False
+    print(fragmentList[24], len(fragmentList[24]))
+    newFragmentList = []
+    for line in inputFile:
+        if '$END' in line:  # For each line in the input file, stop splitting lines and reading if the endSearch tag is present
+            readMode = False
+        if readMode is True:
+            # If readMode is turned on, split the line at blank space, and take out any purely blank space
+            splitLine = [x.strip() for x in line.split()]
+            BDA = abs(int(splitLine[0]))
+            BAA = int(splitLine[1])
+            fragmentCounter = 0
+            for fragment in fragmentList:
+                newFragment = []
+                for atom in fragment:
+                    newFragment.append(atom)
+                    if BDA == atom:
+                        newFragment.append(BAA)
+                        if fragmentCounter+1 != len(fragmentList):
+                            newFragment = [BDA] + newFragment
+                    toAppend = newFragment
+                newFragmentList.append(toAppend)
+                fragmentCounter += 1
+        # When the string corresponding to the start of the coordinate section is found, enable readMode (at the end, so the next line is the first split line)
+        if '$FMOBND' in line:
+            readMode = True
+    print(newFragmentList[24], len(newFragmentList[24]))
+
+
 # Now we need a function to take those atom numbers and turn them into individual fragment .xyz files
 def fetchAtomCoord(inputFile, atomLists, startSearch, endSearch):
     inputFile = open(inputFile, 'r')
@@ -148,6 +179,7 @@ def makePsi4Input(fragmentList, fragNums, inputFile, generatedFileName, basisSet
 
 def makeFragments(inputFile, outputName):
     fragmentList = extractFragmentBounds(inputFile, 'INDAT(1)', 'RESPAP')
+    bondedList = findBondedAtoms(fragmentList, inputFile)
     coordList = fetchAtomCoord(inputFile, fragmentList, '$FMOXYZ', '$END')
     makeIndividualFiles(coordList, outputName)
     # 3 easy calls to functions that make a list of fragments, fetch their coordinates, and make the .xyz file
