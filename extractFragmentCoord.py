@@ -199,24 +199,30 @@ def makeFragments(inputFile, outputName):
     coordList = fetchAtomCoord(inputFile, bondedList, '$FMOXYZ', '$END')
     makeIndividualFiles(coordList, outputName)
     # 3 easy calls to functions that make a list of fragments, fetch their coordinates, and make the .xyz file
-    basisSet = input(
-        "What is your preferred basis set, in Psi4 formatting (cc-pVTZ): ") or 'cc-pVTZ'
-    energyType = input(
-        "What energetic method is to be used, in Psi4 formatting ('mp2'): ") or "'mp2'"
-    memoryRequired = input(
-        "How many GB of memory will be required for this job (8): ") or "8"
-    # We then define some important factors; the defaults are listed in brackets
-    fragmentsOfInterest = [1, 9]
-    totalFragments = []
-    for fragment in fragmentsOfInterest:
-        fragmentCoord = coordList[fragment - 1]
-        totalFragments.append(fragmentCoord)
-        makePsi4Input([fragmentCoord], [fragment], inputFile,
+    print('The following questions relate to the following GAMESS-US input file: ', inputFile)
+    fragmentString = input(
+        "For which fragments (if any) would you like to create Psi4 input files? Please separate by commas (None): ") or 'None'
+    if fragmentString != 'None':
+        basisSet = input(
+            "What is your preferred basis set, in Psi4 formatting (cc-pVTZ): ") or 'cc-pVTZ'
+        energyType = input(
+            "What energetic method is to be used, in Psi4 formatting ('mp2'): ") or "'mp2'"
+        memoryRequired = input(
+            "How many GB of memory will be required for this job (8): ") or "8"
+        # We then define some important factors; the defaults are listed in brackets
+        fragmentsOfInterest = []
+        for fragment in fragmentString.split(','):
+            fragmentsOfInterest.append(int(fragment))
+            totalFragments = []
+        for fragment in fragmentsOfInterest:
+            fragmentCoord = coordList[fragment - 1]
+            totalFragments.append(fragmentCoord)
+            makePsi4Input([fragmentCoord], [fragment], inputFile,
+                          outputName, basisSet, energyType, memoryRequired)
+            # For each fragment in our list of fragments of interest, we call the makePsi4Input function on the individual fragments, but also collect the coordinate info in a larger list
+        makePsi4Input(totalFragments, fragmentsOfInterest, inputFile,
                       outputName, basisSet, energyType, memoryRequired)
-        # For each fragment in our list of fragments of interest, we call the makePsi4Input function on the individual fragments, but also collect the coordinate info in a larger list
-    makePsi4Input(totalFragments, fragmentsOfInterest, inputFile,
-                  outputName, basisSet, energyType, memoryRequired)
-    # That larger list is then used to call the makePsi4Input function on the entire set of fragments
+        # That larger list is then used to call the makePsi4Input function on the entire set of fragments
 
 
 # Make a list of all .inp files in the working directory, and for each of them, run the makeFragments function with an output name that is the same as the input file, without the .inp extension name
