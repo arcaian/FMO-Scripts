@@ -38,8 +38,7 @@ def extractFragmentBounds(inputFile, startSearch, endSearch):
 def findBondedAtoms(fragmentList, inputFile):
     inputFile = open(inputFile, 'r')
     readMode = False
-    print(fragmentList[24], len(fragmentList[24]))
-    newFragmentList = []
+    bdaSetList = []
     for line in inputFile:
         if '$END' in line:  # For each line in the input file, stop splitting lines and reading if the endSearch tag is present
             readMode = False
@@ -48,22 +47,37 @@ def findBondedAtoms(fragmentList, inputFile):
             splitLine = [x.strip() for x in line.split()]
             BDA = abs(int(splitLine[0]))
             BAA = int(splitLine[1])
-            fragmentCounter = 0
-            for fragment in fragmentList:
-                newFragment = []
-                for atom in fragment:
-                    newFragment.append(atom)
-                    if BDA == atom:
-                        newFragment.append(BAA)
-                        if fragmentCounter+1 != len(fragmentList):
-                            newFragment = [BDA] + newFragment
-                    toAppend = newFragment
-                newFragmentList.append(toAppend)
-                fragmentCounter += 1
+            setToAdd = [BDA, BAA]
+            bdaSetList.append(setToAdd)
         # When the string corresponding to the start of the coordinate section is found, enable readMode (at the end, so the next line is the first split line)
         if '$FMOBND' in line:
             readMode = True
-    print(newFragmentList[24], len(newFragmentList[24]))
+    fragmentCounter = 0
+    newFragmentList = []
+    #baaMatchList = []
+    for bdaSet in bdaSetList:
+        BDA = bdaSet[0]
+        BAA = bdaSet[1]
+        for fragment in fragmentList:
+            newFragment = [] + fragment
+            for atom in fragment:
+                if BAA == atom:
+                    #matchedFragment = [fragmentCounter, BDA, BAA]
+                    # baaMatchList.append(matchedFragment)
+                    newFragment.append(BDA)
+                    if fragmentCounter != 0:
+                        newFragmentList[fragmentCounter-1].insert(0, BAA)
+        newFragmentList.append(newFragment)
+        fragmentCounter += 1
+    # for match in baaMatchList:
+        #fragment = match[0]
+        #BDA = match[1]
+        #BAA = match[2]
+        #newFragmentList[fragment].insert(0, BDA)
+        #newFragmentList[fragment-1].insert(0, BAA)
+    print(fragmentList[10], len(fragmentList[10]), 'old')
+    print(newFragmentList[10], len(newFragmentList[10]), 'new')
+    return(newFragmentList)
 
 
 # Now we need a function to take those atom numbers and turn them into individual fragment .xyz files
@@ -180,7 +194,7 @@ def makePsi4Input(fragmentList, fragNums, inputFile, generatedFileName, basisSet
 def makeFragments(inputFile, outputName):
     fragmentList = extractFragmentBounds(inputFile, 'INDAT(1)', 'RESPAP')
     bondedList = findBondedAtoms(fragmentList, inputFile)
-    coordList = fetchAtomCoord(inputFile, fragmentList, '$FMOXYZ', '$END')
+    coordList = fetchAtomCoord(inputFile, bondedList, '$FMOXYZ', '$END')
     makeIndividualFiles(coordList, outputName)
     # 3 easy calls to functions that make a list of fragments, fetch their coordinates, and make the .xyz file
     basisSet = 'cc-pVTZ'
