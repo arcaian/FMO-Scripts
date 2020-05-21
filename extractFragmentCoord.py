@@ -48,23 +48,29 @@ def findBondedAtoms(fragmentList, inputFile):
             BDA = abs(int(splitLine[0]))
             BAA = int(splitLine[1])
             setToAdd = [BDA, BAA]
+            # We don't want the '-' that's present to indicate its on the previous fragment, so take the absolute value, and then add the BDA/BAA to a list of lists
             bdaSetList.append(setToAdd)
         # When the string corresponding to the start of the coordinate section is found, enable readMode (at the end, so the next line is the first split line)
         if '$FMOBND' in line:
             readMode = True
     fragmentCounter = 0
     newFragmentList = []
+    bondedCounter = 0
     for fragment in fragmentList:
-        newFragment = [] + fragment
-        for bdaSet in bdaSetList:
+        newFragment = [] + fragment  # For each fragment, we set a newFragment variable to be equal to the base fragent
+        for bdaSet in bdaSetList:  # Loop through each of the sets of BDA/BAA
             BDA = 'F' + str(bdaSet[0])
+            # We then define the BDA/BAA as strings with 'F' at the start, for fragment - so they're differentiable later for conversion to hydrogens
             BAA = 'F' + str(bdaSet[1])
             for atom in fragment:
+                # For each atom, we check if it matches the BAA; if it does, we append the BDA to this fragment (as it's normally part of the previous fragment)
                 if bdaSet[1] == atom:
                     newFragment.append(BDA)
-                    if fragmentCounter != 0:
+                    if bondedCounter != 0:  # If we're not on the first bond breakage, also append the BAA to the previous fragment
                         newFragmentList[fragmentCounter-1].append(BAA)
+                    bondedCounter += 1
         newFragmentList.append(newFragment)
+        # Once done with each of the BDA sets, append the fragment to the growing list of fragments and increment a counter for the total amount of fragments dealt with
         fragmentCounter += 1
     return(newFragmentList)
 
@@ -92,16 +98,16 @@ def fetchAtomCoord(inputFile, atomLists, startSearch, endSearch):
     for fragment in atomLists:  # With the above loop completed, take the list of fragment atom IDs from the extractFragmentBounds function and loop through it
         fragmentCoords = {}
         for atom in fragment:  # For each atom in the fragment, match the atom number with its atomic information
-            if type(atom) == str:
+            if type(atom) == str:  # If it's a string, then it's one of the BDA/BAA atoms, so convert it back to an int, and replace the element with hydrogen
                 atom = int(atom[1:])
                 toAddSet = atomDictionary[atom]
+                # This could potentially be made variable, but hydrogen is the simplest
                 toAddSet[0] = 'H'
-            else:
+            else:  # If it's not a string, it can be treated normally
                 toAddSet = atomDictionary[atom]
             fragmentCoords[atom] = toAddSet
         # And append this to a dictionary, giving a list of dictionaries, each with atom number and atomic information correlated
         residueSet.append(fragmentCoords)
-    print(residueSet)
     return(residueSet)
 
 
@@ -193,10 +199,13 @@ def makeFragments(inputFile, outputName):
     coordList = fetchAtomCoord(inputFile, bondedList, '$FMOXYZ', '$END')
     makeIndividualFiles(coordList, outputName)
     # 3 easy calls to functions that make a list of fragments, fetch their coordinates, and make the .xyz file
-    basisSet = 'cc-pVTZ'
-    energyType = "'mp2'"
-    memoryRequired = 8
-    # We then define some important factors; these should be asked to the user and overwritten if appropriate, later
+    basisSet = input(
+        "What is your preferred basis set, in Psi4 formatting (cc-pVTZ): ") or 'cc-pVTZ'
+    energyType = input(
+        "What energetic method is to be used, in Psi4 formatting ('mp2'): ") or "'mp2'"
+    memoryRequired = input(
+        "How many GB of memory will be required for this job (8): ") or "8"
+    # We then define some important factors; the defaults are listed in brackets
     fragmentsOfInterest = [1, 9]
     totalFragments = []
     for fragment in fragmentsOfInterest:
