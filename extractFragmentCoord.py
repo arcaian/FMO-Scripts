@@ -54,29 +54,18 @@ def findBondedAtoms(fragmentList, inputFile):
             readMode = True
     fragmentCounter = 0
     newFragmentList = []
-    #baaMatchList = []
-    for bdaSet in bdaSetList:
-        BDA = bdaSet[0]
-        BAA = bdaSet[1]
-        for fragment in fragmentList:
-            newFragment = [] + fragment
+    for fragment in fragmentList:
+        newFragment = [] + fragment
+        for bdaSet in bdaSetList:
+            BDA = bdaSet[0]
+            BAA = bdaSet[1]
             for atom in fragment:
                 if BAA == atom:
-                    #matchedFragment = [fragmentCounter, BDA, BAA]
-                    # baaMatchList.append(matchedFragment)
                     newFragment.append(BDA)
                     if fragmentCounter != 0:
-                        newFragmentList[fragmentCounter-1].insert(0, BAA)
+                        newFragmentList[fragmentCounter-1].append(BAA)
         newFragmentList.append(newFragment)
         fragmentCounter += 1
-    # for match in baaMatchList:
-        #fragment = match[0]
-        #BDA = match[1]
-        #BAA = match[2]
-        #newFragmentList[fragment].insert(0, BDA)
-        #newFragmentList[fragment-1].insert(0, BAA)
-    print(fragmentList[10], len(fragmentList[10]), 'old')
-    print(newFragmentList[10], len(newFragmentList[10]), 'new')
     return(newFragmentList)
 
 
@@ -103,6 +92,7 @@ def fetchAtomCoord(inputFile, atomLists, startSearch, endSearch):
     for fragment in atomLists:  # With the above loop completed, take the list of fragment atom IDs from the extractFragmentBounds function and loop through it
         fragmentCoords = {}
         for atom in fragment:  # For each atom in the fragment, match the atom number with its atomic information
+            print(atom)
             fragmentCoords[atom] = atomDictionary[atom]
         # And append this to a dictionary, giving a list of dictionaries, each with atom number and atomic information correlated
         residueSet.append(fragmentCoords)
