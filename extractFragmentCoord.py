@@ -24,7 +24,7 @@ def extractFragmentBounds(inputFile, startSearch, endSearch):
                 if currentAtom > 0:  # If the atom is over 0, then just append it to the list
                     currentFragmentAtoms.append(currentAtom)
                 elif currentAtom < 0:  # But if the atom is under 0, that's FMO terminology for all atoms from the previous one to this one are included; these are all added
-                    for i in range((previousAtom+1), abs(currentAtom)):
+                    for i in range((previousAtom+1), (abs(currentAtom)+1)):
                         currentFragmentAtoms.append(i)
                 elif currentAtom == 0:  # A 0 marks the end of a fragment; this means we append the list of atoms in the fragment to the total list, and reset the counter
                     fragmentLists.append(currentFragmentAtoms)
@@ -98,11 +98,14 @@ def fetchAtomCoord(inputFile, atomLists, startSearch, endSearch):
     for fragment in atomLists:  # With the above loop completed, take the list of fragment atom IDs from the extractFragmentBounds function and loop through it
         fragmentCoords = {}
         for atom in fragment:  # For each atom in the fragment, match the atom number with its atomic information
-            if type(atom) == str:  # If it's a string, then it's one of the BDA/BAA atoms, so convert it back to an int, and replace the element with hydrogen
+            # If it's a string, then it's one of the BDA/BAA atoms, so convert it back to an int, and replace the element with hydrogen
+            if type(atom) == str and str(atom)[0] == 'F':
                 atom = int(atom[1:])
-                toAddSet = atomDictionary[atom]
-                # This could potentially be made variable, but hydrogen is the simplest
-                toAddSet[0] = 'H'
+                getValue = atomDictionary.get(atom)
+                # To avoid issues with modifying the original dictionary, we make a separate variable with the contents, delete the existing element type, and add in 'H'
+                toAddSet = getValue[1:]
+                toAddSet.insert(0, 'H')
+                # This could potentially be made variable, but hydrogen is the simplest - no need to figure out other capping atoms
             else:  # If it's not a string, it can be treated normally
                 toAddSet = atomDictionary[atom]
             fragmentCoords[atom] = toAddSet
@@ -115,7 +118,7 @@ def fetchAtomCoord(inputFile, atomLists, startSearch, endSearch):
 def makeIndividualFiles(coordDict, outputPrefix):
     fragmentCounter = 0
     # Set the output folder as the current path plus the outfix prefix, and make that folder if it doesn't exist
-    outputFolder = os.getcwd() + '/' + outputPrefix
+    outputFolder = os.getcwd() + '/' + outputPrefix + '_xyz'
     if(os.path.exists(outputFolder) is False):
         os.mkdir(outputFolder)
     for fragment in coordDict:  # For each fragment in the coordinate dictionary, write the first two lines - the number of atoms, and a comment
@@ -145,6 +148,7 @@ def makeIndividualFiles(coordDict, outputPrefix):
         currentFilePath = os.getcwd() + '/' + outputName
         # With the .xyz file written, move it to the output folder - much neater than a big set of files in the working directory
         shutil.move(currentFilePath, (outputFolder + '/' + outputName))
+    print('XYZ files have been generated from fragments in the following folder: ' + outputPrefix + '_xyz')
 
 
 # This is a relatively simple function that takes in a list of fragments, and outputs a valid Psi4 input file for the coordinates
@@ -199,7 +203,7 @@ def makeFragments(inputFile, outputName):
     coordList = fetchAtomCoord(inputFile, bondedList, '$FMOXYZ', '$END')
     makeIndividualFiles(coordList, outputName)
     # 3 easy calls to functions that make a list of fragments, fetch their coordinates, and make the .xyz file
-    print('The following questions relate to the following GAMESS-US input file: ', inputFile)
+    print('The following questions relate to the following GAMESS-US input file:', inputFile)
     fragmentString = input(
         "For which fragments (if any) would you like to create Psi4 input files? Please separate by commas (None): ") or 'None'
     if fragmentString != 'None':
