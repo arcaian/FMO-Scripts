@@ -35,6 +35,16 @@ def extractFragmentBounds(inputFile, startSearch, endSearch):
     return(fragmentLists)  # When the whole set of loops is done, return the list of all fragments
 
 
+# A very simple function - it finds the fragment an atom is associated with
+def findAtomsFragment(fragmentList, atomNumber):
+    fragmentCounter = 0
+    for fragment in fragmentList:
+        for atom in fragment:  # All atoms in each fragment are looped through, checking for a match with the atom of interest; when found, the fragment number is returned
+            if atomNumber == atom:
+                return(fragmentCounter)
+        fragmentCounter += 1
+
+
 def findBondedAtoms(fragmentList, inputFile):
     inputFile = open(inputFile, 'r')
     readMode = False
@@ -54,10 +64,8 @@ def findBondedAtoms(fragmentList, inputFile):
         if '$FMOBND' in line:
             readMode = True
     fragmentCounter = 0
-    newFragmentList = []
-    bondedCounter = 0
-    for fragment in fragmentList:
-        newFragment = [] + fragment  # For each fragment, we set a newFragment variable to be equal to the base fragent
+    newFragmentList = fragmentList
+    for fragment in newFragmentList:
         for bdaSet in bdaSetList:  # Loop through each of the sets of BDA/BAA
             BDA = 'F' + str(bdaSet[0])
             # We then define the BDA/BAA as strings with 'F' at the start, for fragment - so they're differentiable later for conversion to hydrogens
@@ -65,11 +73,10 @@ def findBondedAtoms(fragmentList, inputFile):
             for atom in fragment:
                 # For each atom, we check if it matches the BAA; if it does, we append the BDA to this fragment (as it's normally part of the previous fragment)
                 if bdaSet[1] == atom:
-                    newFragment.append(BDA)
-                    if bondedCounter != 0:  # If we're not on the first bond breakage, also append the BAA to the previous fragment
-                        newFragmentList[fragmentCounter-1].append(BAA)
-                    bondedCounter += 1
-        newFragmentList.append(newFragment)
+                    fragment.append(BDA)
+                    # Wew then find the BDA's fragment, and append the BAA to it, as it's not normally part of that fragment
+                    BDAFrag = findAtomsFragment(fragmentList, bdaSet[0])
+                    newFragmentList[BDAFrag].append(BAA)
         # Once done with each of the BDA sets, append the fragment to the growing list of fragments and increment a counter for the total amount of fragments dealt with
         fragmentCounter += 1
     return(newFragmentList)
