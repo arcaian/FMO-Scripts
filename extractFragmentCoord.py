@@ -76,7 +76,7 @@ def findFragCharge(inputFile, fragmentNum):
               ') differs from the number of fragments (' + fragmentNum + ').')
 
 
-def findBondedAtoms(fragmentList, inputFile):
+def fetchBDAs(inputFile):
     inputFile = open(inputFile, 'r')
     readMode = False
     bdaSetList = []
@@ -94,6 +94,10 @@ def findBondedAtoms(fragmentList, inputFile):
         # When the string corresponding to the start of the coordinate section is found, enable readMode (at the end, so the next line is the first split line)
         if '$FMOBND' in line:
             readMode = True
+    return(bdaSetList)
+
+
+def findBondedAtoms(fragmentList, inputFile, bdaSetList):
     fragmentCounter = 0
     newFragmentList = fragmentList
     for fragment in newFragmentList:
@@ -191,7 +195,7 @@ def makeIndividualFiles(coordDict, outputPrefix):
 
 # This is a relatively simple function that takes in a list of fragments, and outputs a valid Psi4 input file for the coordinates
 # Currently there's the big issue of these inputs not being capped - and so are unpaired electrons; I'm not certain on how to fix this one
-def makePsi4Input(fragmentList, fragNums, inputFile, chargeList, generatedFileName, basisSet, energyType, memoryRequired):
+def writePsi4Input(fragmentList, fragNums, inputFile, chargeList, generatedFileName, basisSet, energyType, memoryRequired):
     fragFileString = ''
     fragComString = ''
     netCharge = 0
@@ -240,13 +244,7 @@ def makePsi4Input(fragmentList, fragNums, inputFile, chargeList, generatedFileNa
 # Then we just do a very small function - makes it neater and easier to manage. It calls the above 3 functions, going from input file to written .xyz files.
 
 
-def makeFragments(inputFile, outputName):
-    fragmentList = extractFragmentBounds(inputFile, 'INDAT(1)', 'RESPAP')
-    fragChargeList = findFragCharge(inputFile, len(fragmentList))
-    bondedList = findBondedAtoms(fragmentList, inputFile)
-    coordList = fetchAtomCoord(inputFile, bondedList, '$FMOXYZ', '$END')
-    makeIndividualFiles(coordList, outputName)
-    # 3 easy calls to functions that make a list of fragments, fetch their coordinates, and make the .xyz file
+def makePsi4Input(inputFile, coordList, fragChargeList, bdaSetList):
     print('The following questions relate to the following GAMESS-US input file:', inputFile)
     fragmentString = input(
         "For which fragments (if any) would you like to create Psi4 input files? Please separate by commas (None): ") or 'None'
@@ -261,16 +259,46 @@ def makeFragments(inputFile, outputName):
         fragmentsOfInterest = []
         for fragment in fragmentString.split(','):
             fragmentsOfInterest.append(int(fragment))
-            totalFragments = []
+        totalFragments = []
         for fragment in fragmentsOfInterest:
             fragmentCoord = coordList[fragment - 1]
             totalFragments.append(fragmentCoord)
-            makePsi4Input([fragmentCoord], [fragment], inputFile, fragChargeList,
-                          outputName, basisSet, energyType, memoryRequired)
+            writePsi4Input([fragmentCoord], [fragment], inputFile, fragChargeList,
+                           outputName, basisSet, energyType, memoryRequired)
             # For each fragment in our list of fragments of interest, we call the makePsi4Input function on the individual fragments, but also collect the coordinate info in a larger list
-        makePsi4Input(totalFragments, fragmentsOfInterest, inputFile, fragChargeList,
-                      outputName, basisSet, energyType, memoryRequired)
+        atomList = []
+        duplicateAtoms = []
+        for dict in totalFragments:
+            for key, value in dict.items():
+                if key in atomList:
+                    duplicateAtoms.append(key)
+                atomList.append(key)
+        for duplicate in duplicateAtoms:
+            dictCount = 0
+            for dict in totalFragments:
+                dictCount += 1
+                for atom in dict:
+                    if atom == duplicate:
+                        if dict[atom][0] == 'H':
+                            dictNum = dictCount-1
+                            print(dictNum, 'found it')
+            print("Deleting duplicate capping atom " + str(duplicate) +
+                  ", coordinates:", totalFragments[dictNum][duplicate])
+            del totalFragments[dictNum][duplicate]
+        writePsi4Input(totalFragments, fragmentsOfInterest, inputFile, fragChargeList,
+                       outputName, basisSet, energyType, memoryRequired)
         # That larger list is then used to call the makePsi4Input function on the entire set of fragments
+
+
+def makeFragments(inputFile, outputName):
+    fragmentList = extractFragmentBounds(inputFile, 'INDAT(1)', 'RESPAP')
+    fragChargeList = findFragCharge(inputFile, len(fragmentList))
+    bdaSetList = fetchBDAs(inputFile)
+    bondedList = findBondedAtoms(fragmentList, inputFile, bdaSetList)
+    coordList = fetchAtomCoord(inputFile, bondedList, '$FMOXYZ', '$END')
+    makeIndividualFiles(coordList, outputName)
+    makePsi4Input(inputFile, coordList, fragChargeList, bdaSetList)
+    # 7 easy calls to functions that: make a list of fragments, determine their charge, fetch a list of BDA/BAAs, account for BDA/BAAs for capping, fetch the fragment coordinates, make the .xyz file, and then ask the user if Psi4 input files are required
 
 
 # Make a list of all .inp files in the working directory, and for each of them, run the makeFragments function with an output name that is the same as the input file, without the .inp extension name
