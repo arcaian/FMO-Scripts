@@ -45,6 +45,37 @@ def findAtomsFragment(fragmentList, atomNumber):
         fragmentCounter += 1
 
 
+def findFragCharge(inputFile, fragmentNum):
+    inputFile = open(inputFile, 'r')
+    readMode = False
+    fragmentCharges = []  # We declare the input file, and a series of empty variables for later
+    for line in inputFile:
+        currentLine = str(line)
+        currentLine = currentLine.lower()  # Make the file lower-case; GAMESS input files vary in their capitilization
+        if 'frgnam' in currentLine:  # For each line in the input file, stop splitting lines and reading if the endSearch tag is present
+            readMode = False
+        if readMode is True:
+            # Remove blank space after splitting by the presence of ','
+            splitLine = [charge.strip() for charge in currentLine.split(',')]
+            for charge in splitLine:
+                # For each charge, only continue if it exists, an split by '=' to get rid of the 'icharg(1)=' area
+                if charge:
+                    currentCharge = charge.split('=')
+                    if len(currentCharge) > 1:  # If the length is over 1, it had 'icharg', so take only the charge
+                        currentCharge = currentCharge[-1].strip()
+                    # Regardless of length, append the (only) value to the list of fragment charges
+                    fragmentCharges.append(currentCharge[0])
+        # When the string corresponding to the start of the coordinate section is found, enable readMode (at the end, so the next line is the first split line)
+        if 'nfrag' in currentLine:
+            readMode = True
+    numCharges = len(fragmentCharges)
+    if numCharges == fragmentNum:  # If we have the correct number of fragment charges, we return the list
+        return(fragmentCharges)
+    else:  # Otherwise, we print out the reason why we're not
+        print('The number of identified fragment charges (' + numCharges +
+              ') differs from the number of fragments (' + fragmentNum + ').')
+
+
 def findBondedAtoms(fragmentList, inputFile):
     inputFile = open(inputFile, 'r')
     readMode = False
@@ -155,17 +186,20 @@ def makeIndividualFiles(coordDict, outputPrefix):
         currentFilePath = os.getcwd() + '/' + outputName
         # With the .xyz file written, move it to the output folder - much neater than a big set of files in the working directory
         shutil.move(currentFilePath, (outputFolder + '/' + outputName))
-    print('XYZ files have been generated from fragments in the following folder: ' + outputPrefix + '_xyz')
+    print('XYZ files have been successfully generated from fragments in the following folder: ' + outputPrefix + '_xyz')
 
 
 # This is a relatively simple function that takes in a list of fragments, and outputs a valid Psi4 input file for the coordinates
 # Currently there's the big issue of these inputs not being capped - and so are unpaired electrons; I'm not certain on how to fix this one
-def makePsi4Input(fragmentList, fragNums, inputFile, generatedFileName, basisSet, energyType, memoryRequired):
+def makePsi4Input(fragmentList, fragNums, inputFile, chargeList, generatedFileName, basisSet, energyType, memoryRequired):
     fragFileString = ''
     fragComString = ''
+    netCharge = 0
     for num in fragNums:  # Simply splitting the given list of fragment numbers into either _ or , deliniated values for use in naming files/adding comments
         fragFileString = fragFileString + '_' + str(num)
         fragComString = fragComString + ', ' + str(num)
+        netCharge += int(chargeList[num-1])
+        # We set the net charge of the molecule to the sum of all individual charges
     writeFileName = generatedFileName + fragFileString + '.dat'
     psi4File = open(writeFileName, 'w')
     psi4File.write('# This is a Psi4 input file generated from the fragment(s)' +
@@ -176,6 +210,8 @@ def makePsi4Input(fragmentList, fragNums, inputFile, generatedFileName, basisSet
     # Specifying the amount of RAM required for the job
     psi4File.write('\nmemory ' + str(memoryRequired) + ' gb \n')
     moleculeString = 'molecule {\n'  # This is the start of the xyz section for the molecule
+    # We then add a line for the charge and multiplicity of the molecule before moving onto coordinates
+    moleculeString = moleculeString + '  ' + str(netCharge) + ' 1\n'
     for fragment in fragmentList:
         for atom in fragment:  # For each atom in each fragment, we have to do some processing
             elementName = fragment[atom][0]
@@ -206,6 +242,7 @@ def makePsi4Input(fragmentList, fragNums, inputFile, generatedFileName, basisSet
 
 def makeFragments(inputFile, outputName):
     fragmentList = extractFragmentBounds(inputFile, 'INDAT(1)', 'RESPAP')
+    fragChargeList = findFragCharge(inputFile, len(fragmentList))
     bondedList = findBondedAtoms(fragmentList, inputFile)
     coordList = fetchAtomCoord(inputFile, bondedList, '$FMOXYZ', '$END')
     makeIndividualFiles(coordList, outputName)
@@ -228,10 +265,10 @@ def makeFragments(inputFile, outputName):
         for fragment in fragmentsOfInterest:
             fragmentCoord = coordList[fragment - 1]
             totalFragments.append(fragmentCoord)
-            makePsi4Input([fragmentCoord], [fragment], inputFile,
+            makePsi4Input([fragmentCoord], [fragment], inputFile, fragChargeList,
                           outputName, basisSet, energyType, memoryRequired)
             # For each fragment in our list of fragments of interest, we call the makePsi4Input function on the individual fragments, but also collect the coordinate info in a larger list
-        makePsi4Input(totalFragments, fragmentsOfInterest, inputFile,
+        makePsi4Input(totalFragments, fragmentsOfInterest, inputFile, fragChargeList,
                       outputName, basisSet, energyType, memoryRequired)
         # That larger list is then used to call the makePsi4Input function on the entire set of fragments
 
