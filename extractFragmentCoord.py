@@ -11,6 +11,7 @@ def extractFragmentBounds(inputFile, startSearch, endSearch):
     currentFragmentAtoms = []
     fragmentLists = []  # We declare the input file, and a series of empty variables for later
     for line in inputFile:
+        line = line.upper()  # Accounting for capitilization
         if endSearch in line:  # For each line in the input file, stop splitting lines and reading if the endSearch tag is present
             readMode = False
         if readMode is True:
