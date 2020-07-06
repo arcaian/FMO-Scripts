@@ -235,9 +235,14 @@ def writePsi4Input(fragmentList, fragNums, inputFile, chargeList, generatedFileN
             stringToAdd = '  ' + elementName + ' ' + xValue + ' ' + yValue + ' ' + zValue + '\n'
             moleculeString = moleculeString + stringToAdd
             # Finally, we add all the disparate bits together to make a line for the molecule in Psi4, and add that to a string that represents all the coordinates
+    moleculeString = moleculeString + 'units angstrom\n' + 'no_reorient\n' + 'symmetry c1\n'
     moleculeString = moleculeString + '}\n'
     psi4File.write(moleculeString)
-    psi4File.write('\nset basis ' + basisSet)
+    globalsString = '\nset globals {\n'
+    globalsString = globalsString + ('   basis ' + basisSet + '\n')
+    globalsString = globalsString + '   scf_type DF\n' + '   freeze_core True\n' + \
+        '   guess sad\n' + '   S_ORTHOGONALIZATION canonical\n' + '}\n'
+    psi4File.write(globalsString)
     psi4File.write("\nenergy(" + energyType + ")")
     # And finally, we write the large molecule string, as well as strings defining the basis set and energy type
 
@@ -281,7 +286,6 @@ def makePsi4Input(inputFile, coordList, fragChargeList, bdaSetList):
                     if atom == duplicate:
                         if dict[atom][0] == 'H':
                             dictNum = dictCount-1
-                            print(dictNum, 'found it')
             print("Deleting duplicate capping atom " + str(duplicate) +
                   ", coordinates:", totalFragments[dictNum][duplicate])
             del totalFragments[dictNum][duplicate]
