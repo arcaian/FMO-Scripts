@@ -62,7 +62,7 @@ def findFragCharge(inputFile, fragmentNum):
                 if charge:
                     currentCharge = charge.split('=')
                     if len(currentCharge) > 1:  # If the length is over 1, it had 'icharg', so take only the charge
-                        currentCharge = currentCharge[-1].strip()
+                        currentCharge = [currentCharge[-1].strip()]
                     # Regardless of length, append the (only) value to the list of fragment charges
                     fragmentCharges.append(currentCharge[0])
         # When the string corresponding to the start of the coordinate section is found, enable readMode (at the end, so the next line is the first split line)
@@ -72,8 +72,8 @@ def findFragCharge(inputFile, fragmentNum):
     if numCharges == fragmentNum:  # If we have the correct number of fragment charges, we return the list
         return(fragmentCharges)
     else:  # Otherwise, we print out the reason why we're not
-        print('The number of identified fragment charges (' + numCharges +
-              ') differs from the number of fragments (' + fragmentNum + ').')
+        print('The number of identified fragment charges (' + str(numCharges) +
+              ') differs from the number of fragments (' + str(fragmentNum) + ').')
 
 
 def fetchBDAs(inputFile):
